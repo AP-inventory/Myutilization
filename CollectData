@@ -1,0 +1,53 @@
+#data_collection_script.ps1
+
+$threshold = 80  # Set the CPU utilization threshold
+$startTime = (Get-Date).AddMonths(-1)  # Set the start time for data collection
+
+# Function to get the top process consuming CPU
+function Get-TopProcess {
+    $process = Get-Process | Sort-Object -Property CPU -Descending | Select-Object -First 1
+    return $process
+}
+
+# Function to check if CPU utilization is above the threshold
+function Check-CPUUtilization {
+    $cpuUtilization = (Get-Counter -Counter "\Processor(_Total)\% Processor Time").CounterSamples.CookedValue
+    if ($cpuUtilization -gt $threshold) {
+        return $true
+    }
+    return $false
+}
+
+# Initialize variables to track time and top process
+$endTime = $null
+$timeTaken = $null
+$topProcess = $null
+
+# Main script
+$currentTime = $startTime
+
+# Loop until CPU utilization goes below the threshold
+while (!(Check-CPUUtilization)) {
+    $currentTime = Get-Date
+    $topProcess = Get-TopProcess
+    $timeTaken = $currentTime - $startTime
+
+    # Wait for a specific interval before checking again
+    Start-Sleep -Seconds 5  # Adjust the interval as needed
+}
+
+# Calculate the time taken for the CPU utilization to drop below the threshold
+$endTime = $currentTime
+$timeTaken = $endTime - $startTime
+
+# Create an object with the collected data
+$dataObject = [PSCustomObject] @{
+    ThresholdTime = $endTime
+    TotalCPUUtilization = (Get-Counter -Counter "\Processor(_Total)\% Processor Time").CounterSamples.CookedValue
+    TopProcess = $topProcess.ProcessName
+    TimeTaken = $timeTaken
+}
+
+# Export the collected data to a CSV file
+$dataObject | Export-Csv -Path "CPUThresholdData.csv" -NoTypeInformation
+
