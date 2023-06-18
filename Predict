@@ -1,0 +1,36 @@
+$threshold = 80  # Set the CPU utilization threshold
+
+# Load the trained model from the .pkl file
+$model = [System.IO.File]::OpenRead('trained_model.pkl')
+$loadedModel = [System.Runtime.Serialization.Formatters.Binary.BinaryFormatter]::new().Deserialize($model)
+$model.Close()
+
+# Function to predict time taken based on CPU utilization
+function Predict-TimeTaken($cpuUtilization) {
+    $newData = [PSCustomObject]@{
+        TotalCPUUtilization = $cpuUtilization
+        TopProcess = 'ExampleProcess'  # Replace with the appropriate process name
+    }
+
+    $prediction = $loadedModel.predict($newData)
+    return $prediction
+}
+
+# Function to check if CPU utilization is above the threshold
+function Check-CPUUtilization {
+    $cpuUtilization = (Get-Counter -Counter '\Processor(_Total)\% Processor Time').CounterSamples.CookedValue
+    if ($cpuUtilization -gt $threshold) {
+        return $true
+    }
+    return $false
+}
+
+# Main script
+while (!(Check-CPUUtilization)) {
+    Start-Sleep -Seconds 5  # Adjust the interval as needed
+}
+
+$currentCPUUtilization = (Get-Counter -Counter '\Processor(_Total)\% Processor Time').CounterSamples.CookedValue
+$prediction = Predict-TimeTaken -cpuUtilization $currentCPUUtilization
+
+Write-Host "CPU utilization hit the threshold. Predicted Time Taken: $prediction"
