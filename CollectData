@@ -51,3 +51,71 @@ $dataObject = [PSCustomObject] @{
 # Export the collected data to a CSV file
 $dataObject | Export-Csv -Path "CPUThresholdData.csv" -NoTypeInformation
 
+
+
+
+""""”""""""""""
+
+$threshold = 20  # Set the CPU utilization threshold
+
+# Function to get the top 3 processes consuming CPU
+function Get-TopProcesses {
+    $processes = Get-Process | Sort-Object -Property CPU -Descending | Select-Object -First 3
+    return $processes
+}
+
+# Function to check if CPU utilization is above the threshold
+function Check-CPUUtilization {
+    $cpuUtilization = (Get-Counter -Counter '\Processor(_Total)\% Processor Time').CounterSamples.CookedValue
+    if ($cpuUtilization -gt $threshold) {
+        return $true
+    }
+    return $false
+}
+
+# Main script
+$startTime = Get-Date
+$endTime = $startTime.AddHours(1)
+$interval = New-TimeSpan -Minutes 2
+
+$collectedData = @()
+
+while (Get-Date -le $endTime) {
+    $thresholdTime = $null
+    $currentTime = $null
+    $topProcesses = @()
+    $timeTaken = $null
+
+    while (!(Check-CPUUtilization)) {
+        Start-Sleep -Milliseconds 500  # Adjust the interval as needed
+    }
+
+    $thresholdTime = Get-Date
+    $currentTime = $thresholdTime
+
+    while ($currentTime -le ($thresholdTime.AddMinutes(2))) {
+        $topProcesses += Get-TopProcesses
+        $currentTime = Get-Date
+        Start-Sleep -Milliseconds 500  # Adjust the interval as needed
+    }
+
+    $endTime = $currentTime
+    $timeTaken = $endTime - $thresholdTime
+
+    # Create an object with the collected data
+    $dataObject = [PSCustomObject] @{
+        ThresholdTime = $thresholdTime
+        EndTime = $endTime
+        TotalCPUUtilization = (Get-Counter -Counter '\Processor(_Total)\% Processor Time').CounterSamples.CookedValue
+        TopProcesses = $topProcesses.ProcessName
+        TimeTaken = $timeTaken
+    }
+
+    # Add the data object to the collected data array
+    $collectedData += $dataObject
+
+    Start-Sleep -Seconds $interval.TotalSeconds  # Adjust the interval as needed
+}
+
+# Export the collected data to a CSV file
+$collectedData | Export-Csv -Path "CPUData.csv" -NoTypeInformation
