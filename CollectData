@@ -169,7 +169,6 @@ $data | Export-Csv -Path "CPUData.csv" -NoTypeInformation
 
 
 ###############################################################
-
 # Set the threshold for normal CPU utilization (e.g., 10%)
 $threshold = 10
 
@@ -187,9 +186,13 @@ while ((Get-Date) -le $endTime) {
 
     # Check if the CPU utilization has crossed the threshold
     if ($cpuUtilization -ge $threshold) {
-        # Get the sum of the percentage utilization of each process
+        # Get the processes and calculate their utilization percentages
         $processes = Get-Process
-        $processUtilizationSum = ($processes | Measure-Object -Property CPU -Sum).Sum
+        $processUtilizationSum = 0
+        foreach ($process in $processes) {
+            $processUtilization = ($process.CPU / (Get-WmiObject -Class Win32_ComputerSystem).NumberOfLogicalProcessors) * 100
+            $processUtilizationSum += $processUtilization
+        }
 
         # Calculate the time taken to come back to normal
         $timeTaken = (Get-Date) - $startTime
@@ -211,4 +214,3 @@ while ((Get-Date) -le $endTime) {
 
 # Export the collected data to a CSV file
 $data | Export-Csv -Path "CPUData.csv" -NoTypeInformation
-
