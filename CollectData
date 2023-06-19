@@ -119,3 +119,50 @@ while (Get-Date -le $endTime) {
 
 # Export the collected data to a CSV file
 $collectedData | Export-Csv -Path "CPUData.csv" -NoTypeInformation
+
+
+
+____________________________________________________________________
+
+# Set the threshold for normal CPU utilization (e.g., 10%)
+$threshold = 10
+
+# Create an empty array to store the data
+$data = @()
+
+# Define the time range for data collection
+$endTime = (Get-Date).AddMinutes(1)
+$startTime = $endTime.AddSeconds(-1)
+
+# Loop until the current time reaches the end time
+while ((Get-Date) -le $endTime) {
+    # Get the CPU utilization percentage
+    $cpuUtilization = (Get-Counter -Counter '\Processor(_Total)\% Processor Time').CounterSamples.CookedValue
+
+    # Check if the CPU utilization has crossed the threshold
+    if ($cpuUtilization -ge $threshold) {
+        # Get the top 3 process usage percentage
+        $topProcesses = Get-Process | Sort-Object -Property CPU -Descending | Select-Object -First 3
+        $top3UsagePercentage = ($topProcesses | Measure-Object -Property CPU -Sum).Sum
+
+        # Calculate the time taken to come back to normal
+        $timeTaken = (Get-Date) - $startTime
+
+        # Create an object with the collected data
+        $dataObject = [PSCustomObject] @{
+            CPUUtilization = $cpuUtilization
+            Top3UsagePercentage = $top3UsagePercentage
+            TimeTaken = $timeTaken
+        }
+
+        # Add the data object to the array
+        $data += $dataObject
+    }
+
+    # Wait for a specific interval before checking again
+    Start-Sleep -Seconds 1
+}
+
+# Export the collected data to a CSV file
+$data | Export-Csv -Path "CPUData.csv" -NoTypeInformation
+
